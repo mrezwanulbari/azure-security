@@ -1,0 +1,54 @@
+name: Brute Force Attack Against Entra ID
+id: b1a2c3d4-e5f6-7890-abcd-ef1234567890
+description: |
+  Detects multiple failed sign-in attempts from a single IP address
+  followed by a successful sign-in, indicating a potential brute force
+  attack against Azure Active Directory / Entra ID.
+severity: High
+queryFrequency: PT5M
+queryPeriod: PT1H
+triggerOperator: GreaterThan
+triggerThreshold: 0
+tactics:
+  - CredentialAccess
+  - InitialAccess
+relevantTechniques:
+  - T1110
+  - T1078
+query: |
+  let failureThreshold = 10;
+  let timeWindow = 1h;
+  SigninLogs
+  | where TimeGenerated >= ago(timeWindow)
+  | where ResultType != "0"
+  | summarize
+      FailureCount = count(),
+      FailedAccounts = make_set(UserPrincipalName),
+      FirstFailure = min(TimeGenerated),
+      LastFailure = max(TimeGenerated)
+    by IPAddress, Location = tostring(LocationDetails.city)
+  | where FailureCount >= failureThreshold
+  | join kind=inner (
+      SigninLogs
+      | where TimeGenerated >= ago(timeWindow)
+      | where ResultType == "0"
+      | project
+          SuccessTime = TimeGenerated,
+          IPAddress,
+          SuccessAccount = UserPrincipalName,
+          AppDisplayName
+    ) on IPAddress
+  | where SuccessTime > LastFailure
+  | project
+      IPAddress, Location, FailureCount, FailedAccounts,
+      SuccessAccount, AppDisplayName,
+      FirstFailure, LastFailure, SuccessTime
+entityMappings:
+  - entityType: Account
+    fieldMappings:
+      - identifier: FullName
+        columnName: SuccessAccount
+  - entityType: IP
+    fieldMappings:
+      - identifier: Address
+        columnName: IPAddress
