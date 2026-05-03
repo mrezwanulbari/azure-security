@@ -1,0 +1,38 @@
+title: Office 365 Mailbox Forwarding Rule Created
+id: b3c4d5e6-f7a8-9012-bcde-345678901234
+status: stable
+level: high
+description: |
+    Detects creation of mailbox forwarding rules in Office 365 that
+    redirect emails to external addresses. This is a common persistence
+    and data exfiltration technique after business email compromise.
+author: Shakil Md. Rezwanul Bari
+date: 2024/01/15
+references:
+    - https://attack.mitre.org/techniques/T1114/003/
+    - https://learn.microsoft.com/en-us/microsoft-365/security/office-365-security/detect-and-remediate-outlook-rules-forms-attack
+logsource:
+    product: m365
+    service: exchange
+detection:
+    selection:
+        Operation:
+            - 'New-InboxRule'
+            - 'Set-InboxRule'
+            - 'Set-Mailbox'
+    filter_forwarding:
+        Parameters|contains:
+            - 'ForwardTo'
+            - 'ForwardAsAttachmentTo'
+            - 'RedirectTo'
+    condition: selection and filter_forwarding
+falsepositives:
+    - Legitimate forwarding rules set by users
+    - Shared mailbox configurations
+    - Out-of-office auto-forwarding
+tags:
+    - attack.collection
+    - attack.exfiltration
+    - attack.t1114.003
+    - attack.persistence
+    - attack.t1137
