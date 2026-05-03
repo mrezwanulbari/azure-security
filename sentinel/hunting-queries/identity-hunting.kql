@@ -1,0 +1,66 @@
+// =============================================================================
+// Microsoft Sentinel — Identity Hunting Queries
+// =============================================================================
+// Author: Shakil Md. Rezwanul Bari
+// Purpose: Proactive hunting for identity-based threats in Entra ID
+// =============================================================================
+
+// === Hunt 1: Impossible Travel Detection ===
+SigninLogs
+| where TimeGenerated >= ago(24h)
+| where ResultType == "0"
+| project TimeGenerated, UserPrincipalName, IPAddress,
+    Lat = tostring(LocationDetails.geoCoordinates.latitude),
+    Lon = tostring(LocationDetails.geoCoordinates.longitude),
+    City = tostring(LocationDetails.city),
+    Country = tostring(LocationDetails.countryOrRegion)
+| sort by UserPrincipalName, TimeGenerated asc
+| extend
+    PrevTime = prev(TimeGenerated, 1),
+    PrevLat = todouble(prev(Lat, 1)),
+    PrevLon = todouble(prev(Lon, 1)),
+    PrevUser = prev(UserPrincipalName, 1)
+| where UserPrincipalName == PrevUser
+| extend
+    TimeDiffMin = datetime_diff('minute', TimeGenerated, PrevTime),
+    DistKm = geo_distance_2points(todouble(Lon), todouble(Lat), PrevLon, PrevLat) / 1000
+| where TimeDiffMin < 120 and DistKm > 500
+| project UserPrincipalName, DistKm = round(DistKm, 0),
+    TimeDiffMin, SpeedKmH = round(DistKm / (TimeDiffMin / 60.0), 0)
+
+// === Hunt 2: Dormant Account Reactivation ===
+let dormantDays = 90;
+SigninLogs
+| where TimeGenerated >= ago(1d)
+| where ResultType == "0"
+| join kind=leftanti (
+    SigninLogs
+    | where TimeGenerated between (ago(dormantDays + 1d) .. ago(1d))
+    | where ResultType == "0"
+    | distinct UserPrincipalName
+  ) on UserPrincipalName
+| summarize
+    LoginCount = count(),
+    IPAddresses = make_set(IPAddress),
+    Apps = make_set(AppDisplayName)
+  by UserPrincipalName
+| sort by LoginCount desc
+
+// === Hunt 3: OAuth App Consent Grants ===
+AuditLogs
+| where TimeGenerated >= ago(7d)
+| where OperationName == "Consent to application"
+| extend
+    Actor = tostring(InitiatedBy.user.userPrincipalName),
+    AppName = tostring(TargetResources[0].displayName),
+    Permissions = tostring(TargetResources[0].modifiedProperties)
+| project TimeGenerated, Actor, AppName, Permissions, Result
+
+// === Hunt 4: Mailbox Forwarding Rules ===
+OfficeActivity
+| where TimeGenerated >= ago(7d)
+| where Operation in ("New-InboxRule", "Set-InboxRule", "Set-Mailbox")
+| where Parameters has_any ("ForwardTo", "ForwardAsAttachmentTo", "RedirectTo")
+| extend
+    ForwardingAddress = tostring(parse_json(Parameters)[?Name == "ForwardTo"].Value)
+| project TimeGenerated, UserId, Operation, ForwardingAddress, ClientIP
