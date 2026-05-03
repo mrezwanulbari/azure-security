@@ -1,0 +1,25 @@
+title: Azure Network Security Group Deleted
+id: a2b3c4d5-e6f7-8901-abcd-234567890123
+status: stable
+level: high
+description: |
+    Detects deletion of Azure Network Security Groups, which could
+    indicate an attacker removing network access controls to enable
+    lateral movement or data exfiltration.
+author: Shakil Md. Rezwanul Bari
+date: 2024/01/15
+logsource:
+    product: azure
+    service: activitylogs
+detection:
+    selection:
+        OperationNameValue|endswith: '/networkSecurityGroups/delete'
+        ActivityStatusValue: Success
+    condition: selection
+falsepositives:
+    - Authorized infrastructure decommissioning
+    - Terraform/ARM template resource cleanup
+tags:
+    - attack.defense_evasion
+    - attack.t1562.007
+    - attack.impact
