@@ -1,0 +1,32 @@
+title: Azure AD Multi-Factor Authentication Disabled
+id: e1f2a3b4-c5d6-7890-ef12-345678901234
+status: stable
+level: high
+description: |
+    Detects when MFA is disabled for a user account in Azure AD / Entra ID.
+    Disabling MFA significantly weakens account security and may indicate
+    an attacker attempting to weaken authentication requirements.
+author: Shakil Md. Rezwanul Bari
+date: 2024/01/15
+references:
+    - https://learn.microsoft.com/en-us/entra/identity/authentication/howto-mfa-userstates
+    - https://attack.mitre.org/techniques/T1556/006/
+logsource:
+    product: azure
+    service: auditlogs
+detection:
+    selection:
+        OperationName:
+            - 'Disable Strong Authentication'
+            - 'User disabled security info'
+            - 'Admin disabled security info'
+            - 'Delete strong authentication phone app detail'
+    condition: selection
+falsepositives:
+    - Authorized admin resetting MFA for locked-out user
+    - MFA migration between providers
+tags:
+    - attack.persistence
+    - attack.defense_evasion
+    - attack.t1556.006
+    - attack.credential_access
