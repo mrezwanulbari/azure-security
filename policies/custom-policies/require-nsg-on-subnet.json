@@ -1,0 +1,36 @@
+{
+    "properties": {
+        "displayName": "Require NSG on Every Subnet",
+        "description": "Ensures every subnet has an associated Network Security Group. Subnets without NSGs are vulnerable to unrestricted network access.",
+        "mode": "All",
+        "metadata": {
+            "category": "Network",
+            "version": "1.0.0"
+        },
+        "policyRule": {
+            "if": {
+                "allOf": [
+                    {
+                        "field": "type",
+                        "equals": "Microsoft.Network/virtualNetworks/subnets"
+                    },
+                    {
+                        "field": "Microsoft.Network/virtualNetworks/subnets/networkSecurityGroup.id",
+                        "exists": false
+                    },
+                    {
+                        "field": "name",
+                        "notIn": [
+                            "GatewaySubnet",
+                            "AzureFirewallSubnet",
+                            "AzureBastionSubnet"
+                        ]
+                    }
+                ]
+            },
+            "then": {
+                "effect": "deny"
+            }
+        }
+    }
+}
