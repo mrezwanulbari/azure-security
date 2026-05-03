@@ -1,0 +1,30 @@
+{
+    "properties": {
+        "displayName": "Deny Public IP Address Creation",
+        "description": "Prevents creation of public IP addresses unless explicitly tagged as approved. Enforces private-only network architecture aligned with Zero Trust principles.",
+        "mode": "All",
+        "metadata": {
+            "category": "Network",
+            "version": "1.0.0"
+        },
+        "policyRule": {
+            "if": {
+                "allOf": [
+                    {
+                        "field": "type",
+                        "equals": "Microsoft.Network/publicIPAddresses"
+                    },
+                    {
+                        "not": {
+                            "field": "tags['security-exception']",
+                            "equals": "approved-public-ip"
+                        }
+                    }
+                ]
+            },
+            "then": {
+                "effect": "deny"
+            }
+        }
+    }
+}
